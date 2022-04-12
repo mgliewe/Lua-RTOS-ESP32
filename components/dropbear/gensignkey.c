@@ -7,11 +7,14 @@
 #include "signkey.h"
 #include "dbrandom.h"
 
+#include <stdio.h>
+
 #define RSA_DEFAULT_SIZE 2048
 #define DSS_DEFAULT_SIZE 1024
 
 /* Returns DROPBEAR_SUCCESS or DROPBEAR_FAILURE */
 static int buf_writefile(buffer * buf, const char * filename) {
+#if 0
 	int ret = DROPBEAR_FAILURE;
 	int fd = -1;
 
@@ -47,6 +50,36 @@ out:
 		m_close(fd);
 	}
 	return ret;
+#else
+	int ret = DROPBEAR_FAILURE;
+	FILE *fd = 0;
+
+	fd = fopen(filename, "w");
+	if (!fd) {
+		dropbear_log(LOG_ERR, "Couldn't create new file %s: %s",
+			filename, strerror(errno));
+		goto out;
+	}
+
+	/* write the file now */
+	while (buf->pos != buf->len) {
+		int len = fwrite(buf_getptr(buf, buf->len - buf->pos),
+				1, buf->len - buf->pos, fd);
+		if (len <= 0) {
+			dropbear_log(LOG_ERR, "Failed writing file %s: %s",
+				filename, strerror(errno));
+			goto out;
+		}
+		buf_incrpos(buf, len);
+	}
+
+	ret = DROPBEAR_SUCCESS;
+out:
+	if (fd) {
+		fclose(fd);
+	}
+	return ret;
+#endif
 }
 
 /* returns 0 on failure */

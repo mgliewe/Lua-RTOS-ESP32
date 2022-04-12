@@ -430,7 +430,7 @@ char * stripcontrol(const char * text) {
  * position, either to the end of the file, or the buffer being full.
  * Returns DROPBEAR_SUCCESS or DROPBEAR_FAILURE */
 int buf_readfile(buffer* buf, const char* filename) {
-
+#if 0
 	int fd = -1;
 	int len;
 	int maxlen;
@@ -463,6 +463,40 @@ out:
 		m_close(fd);
 	}
 	return ret;
+#else
+	FILE *fd = 0;
+	int len;
+	int maxlen;
+	int ret = DROPBEAR_FAILURE;
+
+	fd = fopen(filename, "r");
+
+	if (!fd) {
+		goto out;
+	}
+	
+	do {
+		maxlen = buf->size - buf->pos;
+		len = fread(buf_getwriteptr(buf, maxlen), 1, maxlen, fd);
+		if (len < 0) {
+			if (errno == EINTR || errno == EAGAIN) {
+				printf("fail2\r\n");
+				continue;
+			}
+			printf("fail3\r\n");
+			goto out;
+		}
+		buf_incrwritepos(buf, len);
+	} while (len < maxlen && len > 0);
+
+	ret = DROPBEAR_SUCCESS;
+
+out:
+	if (fd) {
+		fclose(fd);
+	}
+	return ret;
+#endif
 }
 
 /* get a line from the file into buffer in the style expected for an

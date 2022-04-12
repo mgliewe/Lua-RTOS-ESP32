@@ -315,6 +315,7 @@ int new_file(struct editor *ed, char *filename) {
 }
 
 int load_file(struct editor *ed, char *filename) {
+#if 0
   struct stat statbuf;
   int length;
   int f;
@@ -350,9 +351,46 @@ err:
     ed->start = NULL;
   }
   return -1;
+#else
+  int length;
+  FILE *f;
+
+  if (!realpath(filename, ed->filename)) return -1;
+
+  f = fopen(ed->filename, "r");
+
+  if (!f) return -1;
+
+  fseek(f, 0L, SEEK_END);
+  length = ftell(f);
+  fseek(f, 0L, SEEK_SET);
+
+  ed->start = (unsigned char *) malloc(length + MINEXTEND);
+  if (!ed->start) goto err;
+#ifdef DEBUG
+  memset(ed->start, 0, length + MINEXTEND);
+#endif
+  if (fread(ed->start, 1, length, f) != length) goto err;
+
+  ed->gap = ed->start + length;
+  ed->rest = ed->end = ed->gap + MINEXTEND;
+  ed->anchor = -1;
+
+  fclose(f);
+  return 0;
+
+err:
+  fclose(f);
+  if (ed->start) {
+    free(ed->start);
+    ed->start = NULL;
+  }
+  return -1;
+#endif
 }
 
 int save_file(struct editor *ed) {
+  #if 0
   int f;
 
   f = open(ed->filename, O_CREAT | O_TRUNC | O_WRONLY, ed->permissions);
@@ -369,6 +407,25 @@ int save_file(struct editor *ed) {
 err:
   close(f);
   return -1;
+#else
+  FILE *f;
+
+  f = fopen(ed->filename, "w");
+  if (!f) return -1;
+
+  if (fwrite(ed->start, 1, ed->gap - ed->start, f) != ed->gap - ed->start) goto err;
+  if (fwrite(ed->rest, 1, ed->end - ed->rest, f) != ed->end - ed->rest) goto err;
+
+  fclose(f);
+  ed->dirty = 0;
+  clear_undo(ed);
+  return 0;
+
+err:
+  fclose(f);
+  return -1;
+
+#endif
 }
 
 int text_length(struct editor *ed) {
